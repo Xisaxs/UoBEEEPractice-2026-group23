@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cmdProc Main Block-Level Sketch</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #1c2a39;
+      --muted: #516173;
+      --line: #c9d4e2;
+      --rx: #1d6f8e;
+      --echo: #3b7d3f;
+      --list: #a15d1a;
+      --peak: #7a3d7d;
+      --core: #1f3f73;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 8% 10%, rgba(29, 111, 142, 0.12), transparent 38%),
+        radial-gradient(circle at 92% 5%, rgba(58, 125, 63, 0.1), transparent 36%),
+        var(--bg);
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 18px 28px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.85rem;
+      color: #173454;
+    }
+    .subtitle {
+      margin: 8px 0 16px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 5px 14px rgba(23, 52, 84, 0.08);
+      margin-bottom: 14px;
+      overflow-x: auto;
+    }
+    h2 {
+      margin: 4px 0 10px;
+      font-size: 1.08rem;
+      color: #1b4168;
+    }
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+    .chip {
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #f9fbff;
+      white-space: nowrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f3f7fd;
+      color: #1e3d60;
+    }
+    .small {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 8px;
+    }
+    @media (max-width: 760px) {
+      h1 { font-size: 1.55rem; }
+      .wrap { padding: 16px 10px 18px; }
+      table { font-size: 0.9rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>cmdProc Main Block-Level Sketch</h1>
+    <p class="subtitle">
+      Focused view of the main command paths in <code>cmdProc.vhd</code>:
+      <strong>Rx pattern recogniser</strong>, <strong>data echoing</strong>, <strong>L printing</strong>, and <strong>P printing</strong>.
+    </p>
+
+    <section class="card">
+      <h2>Top-Level Sketch</h2>
+      <svg width="1120" height="540" viewBox="0 0 1120 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="cmdProc main block sketch">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L10,4 L0,8 z" fill="#4a607a"/>
+          </marker>
+          <style>
+            .b { fill: #fff; stroke: #9fb2c9; stroke-width: 1.4; rx: 12; }
+            .t { font: 600 15px Trebuchet MS, Segoe UI, Tahoma, sans-serif; fill: #18324d; }
+            .s { font: 13px Trebuchet MS, Segoe UI, Tahoma, sans-serif; fill: #435669; }
+            .a { stroke: #4a607a; stroke-width: 2.1; fill: none; marker-end: url(#arrow); }
+            .rx { fill: #e9f6fb; stroke: #6cb6cf; }
+            .echo { fill: #eef8ef; stroke: #7fba84; }
+            .list { fill: #fff4e8; stroke: #d89d63; }
+            .peak { fill: #f8eef9; stroke: #b785be; }
+            .core { fill: #edf2fd; stroke: #8ca8d8; }
+          </style>
+        </defs>
+
+        <rect x="36" y="58" width="220" height="74" class="b"/>
+        <text x="53" y="87" class="t">UART Rx Interface</text>
+        <text x="53" y="110" class="s">rxnow, rxData, ovErr, framErr</text>
+
+        <rect x="304" y="40" width="352" height="132" class="b rx"/>
+        <text x="322" y="73" class="t">Rx Pattern Recogniser</text>
+        <text x="322" y="96" class="s">4-byte window (rxWin0..rxWin3)</text>
+        <text x="322" y="116" class="s">Detect: ANNN/aNNN, L/l, P/p</text>
+        <text x="322" y="136" class="s">Also captures echo byte</text>
+        <text x="322" y="156" class="s">Outputs: start_evt, list_evt, peak_evt, echo_pending</text>
+
+        <rect x="708" y="58" width="360" height="74" class="b core"/>
+        <text x="726" y="87" class="t">Arbitration + Tx Driver</text>
+        <text x="726" y="110" class="s">IDLE priority: echo &gt; start &gt; list &gt; peak</text>
+
+        <rect x="304" y="212" width="352" height="92" class="b echo"/>
+        <text x="322" y="243" class="t">Data Echoing Path</text>
+        <text x="322" y="265" class="s">Trigger: every rxnow byte</text>
+        <text x="322" y="285" class="s">FSM: ECHO_TX -&gt; ECHO_TX_WAIT</text>
+
+        <rect x="304" y="332" width="352" height="92" class="b list"/>
+        <text x="322" y="363" class="t">L Printing Path</text>
+        <text x="322" y="385" class="s">Trigger: list_evt and result_valid</text>
+        <text x="322" y="405" class="s">Prints result_bytes_reg(0..6) as 2 ASCII hex chars + space</text>
+
+        <rect x="304" y="452" width="352" height="72" class="b peak"/>
+        <text x="322" y="482" class="t">P Printing Path</text>
+        <text x="322" y="502" class="s">Trigger: peak_evt and result_valid, prints peak byte + maxIndex</text>
+
+        <rect x="708" y="216" width="360" height="146" class="b core"/>
+        <text x="726" y="246" class="t">Result Snapshot / Storage</text>
+        <text x="726" y="269" class="s">Inputs: dataReady, byte, seqDone, dataResults, maxIndex</text>
+        <text x="726" y="289" class="s">On seqDone rising:</text>
+        <text x="742" y="309" class="s">result_bytes_reg &lt;= dataResults</text>
+        <text x="742" y="329" class="s">peak_index_reg &lt;= maxIndex</text>
+        <text x="742" y="349" class="s">result_valid &lt;= '1'</text>
+
+        <rect x="708" y="412" width="360" height="84" class="b"/>
+        <text x="726" y="442" class="t">UART Tx Output</text>
+        <text x="726" y="464" class="s">txData, txnow (waits on txdone)</text>
+        <text x="726" y="484" class="s">Also drives rxdone pulse for Rx clear</text>
+
+        <line x1="256" y1="95" x2="304" y2="95" class="a"/>
+        <line x1="656" y1="95" x2="708" y2="95" class="a"/>
+        <line x1="656" y1="258" x2="708" y2="258" class="a"/>
+        <line x1="656" y1="378" x2="708" y2="378" class="a"/>
+        <line x1="656" y1="488" x2="708" y2="488" class="a"/>
+        <path d="M530,172 L530,212" class="a"/>
+        <path d="M530,172 L530,332" class="a"/>
+        <path d="M530,172 L530,452" class="a"/>
+        <path d="M888,132 L888,216" class="a"/>
+        <path d="M888,362 L888,412" class="a"/>
+      </svg>
+
+      <div class="legend">
+        <span class="chip">Rx recogniser: command detection + event generation</span>
+        <span class="chip">Echo: immediate byte feedback path</span>
+        <span class="chip">L: stored list output path</span>
+        <span class="chip">P: peak byte + index output path</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Main Path Mapping to FSM States</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>Condition</th>
+            <th>Main States</th>
+            <th>Output Intent</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Rx pattern recogniser</td>
+            <td><code>rxnow='1'</code></td>
+            <td>State-independent parser update in <code>rx_parser_regs</code></td>
+            <td>Detect ANNN/aNNN, L/l, P/p and queue event flags</td>
+          </tr>
+          <tr>
+            <td>Data echoing</td>
+            <td><code>echo_pending='1'</code> in IDLE</td>
+            <td><code>ECHO_TX</code> → <code>ECHO_TX_WAIT</code></td>
+            <td>Transmit received byte back over UART</td>
+          </tr>
+          <tr>
+            <td>L printing</td>
+            <td><code>list_evt='1'</code> and <code>result_valid='1'</code></td>
+            <td><code>LIST_NL_LF</code> → <code>LIST_NL_CR</code> → byte-loop states</td>
+            <td>Transmit full result list from snapshot registers</td>
+          </tr>
+          <tr>
+            <td>P printing</td>
+            <td><code>peak_evt='1'</code> and <code>result_valid='1'</code></td>
+            <td><code>PEAK_NL_LF</code> → <code>PEAK_NL_CR</code> → peak/index states</td>
+            <td>Transmit peak byte plus 3-digit BCD index</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="small">
+        This page intentionally highlights only the four requested functional paths, not every helper register or FSM detail.
+      </p>
+    </section>
+  </div>
+</body>
+</html>
