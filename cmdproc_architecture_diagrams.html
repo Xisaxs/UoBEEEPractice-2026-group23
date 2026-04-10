@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cmdProc Architecture Diagrams (Synced)</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --bg2: #e9eff8;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #5b677a;
+      --line: #cfd8e3;
+      --accent: #1b4f72;
+      --accent2: #2a7f62;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 8% 12%, rgba(42, 127, 98, 0.08), transparent 38%),
+        radial-gradient(circle at 88% 6%, rgba(27, 79, 114, 0.10), transparent 42%),
+        linear-gradient(180deg, var(--bg2) 0%, var(--bg) 45%);
+    }
+    .wrap {
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 26px 22px 30px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.9rem;
+      letter-spacing: 0.01em;
+      color: #12324a;
+    }
+    .subtitle {
+      margin: 8px 0 20px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 16px 10px;
+      margin-bottom: 18px;
+      box-shadow: 0 5px 16px rgba(28, 54, 78, 0.08);
+      overflow-x: auto;
+    }
+    h2 {
+      margin: 2px 0 8px;
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+    .note {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    .legend {
+      margin: 0 0 12px;
+      color: #29465f;
+      font-size: 0.92rem;
+    }
+    .legend strong {
+      color: #12324a;
+    }
+    @media (max-width: 700px) {
+      h1 { font-size: 1.55rem; }
+      .wrap { padding: 18px 12px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Command Processor Architecture Diagrams</h1>
+    <p class="subtitle">
+      Synced to the current <code>Cmdtb/cmdProc.vhd</code> implementation: exact FSM state names, RX echo priority,
+      and snapshot latching of <code>dataResults</code>/<code>maxIndex</code> on <code>seqDone</code>.
+    </p>
+
+    <section class="card">
+      <h2>Block-Level Sketch (Implemented)</h2>
+      <p class="note">
+        Four-process implementation: <code>state_reg</code>, <code>rx_parser_regs</code>, <code>next_state_logic</code>,
+        and <code>output_logic</code>.
+      </p>
+      <pre class="mermaid">
+flowchart LR
+  RX["UART Rx\nrxnow, rxData"] --> RXP["rx_parser_regs\n4-byte window (rxWin0..rxWin3)\ncommand detect + echo capture"]
+  RXP --> EVT["Event/state regs\nstart_evt/list_evt/peak_evt\necho_pending + numWords_reg"]
+
+  DP["Data processor\nbyte, dataReady, seqDone,\ndataResults, maxIndex"] --> RXP
+  RXP --> SNAP["Result snapshot regs\nresult_bytes_reg\npeak_index_reg\nresult_valid + seqDone_latched"]
+
+  ST["state_reg\ncurState"] --> NS["next_state_logic\n(transition arbitration)"]
+  EVT --> NS
+  SNAP --> NS
+  NS --> ST
+
+  ST --> OUT["output_logic\nstart, txData, txnow, rxdone"]
+  EVT --> OUT
+  SNAP --> OUT
+  OUT --> TX["UART Tx handshake\npulse txnow, wait txdone"]
+      </pre>
+    </section>
+
+    <section class="card">
+      <h2>FSM State Diagram (Exact Names)</h2>
+      <p class="legend">
+        <strong>IDLE priority:</strong> <code>echo_pending</code> &gt; <code>start_evt</code> &gt; <code>list_evt</code> &gt; <code>peak_evt</code>.
+      </p>
+      <p class="legend">
+        <strong>Transition style:</strong> <code>next_state_logic</code> defaults to hold state; wait states only move on <code>txdone=1</code>.
+      </p>
+      <pre class="mermaid">
+stateDiagram-v2
+  [*] --> IDLE
+
+  IDLE --> ECHO_TX: echo_pending=1
+  ECHO_TX --> ECHO_TX_WAIT
+  ECHO_TX_WAIT --> IDLE: txdone=1
+
+  IDLE --> RUN_NL_LF: start_evt=1
+  RUN_NL_LF --> RUN_NL_LF_WAIT
+  RUN_NL_LF_WAIT --> RUN_NL_CR: txdone=1
+  RUN_NL_CR --> RUN_NL_CR_WAIT
+  RUN_NL_CR_WAIT --> RUN_REQ: txdone=1
+
+  RUN_REQ --> IDLE: seqDone_latched=1
+  RUN_REQ --> RUN_TX_HI: dataReady=1
+  RUN_REQ --> RUN_REQ: otherwise
+  RUN_TX_HI --> RUN_TX_HI_WAIT
+  RUN_TX_HI_WAIT --> RUN_TX_LO: txdone=1
+  RUN_TX_LO --> RUN_TX_LO_WAIT
+  RUN_TX_LO_WAIT --> RUN_TX_SEP: txdone=1
+  RUN_TX_SEP --> RUN_TX_SEP_WAIT
+  RUN_TX_SEP_WAIT --> RUN_REQ: txdone=1
+
+  IDLE --> LIST_NL_LF: list_evt=1 and result_valid=1
+  LIST_NL_LF --> LIST_NL_LF_WAIT
+  LIST_NL_LF_WAIT --> LIST_NL_CR: txdone=1
+  LIST_NL_CR --> LIST_NL_CR_WAIT
+  LIST_NL_CR_WAIT --> LIST_TX_HI: txdone=1
+  LIST_TX_HI --> LIST_TX_HI_WAIT
+  LIST_TX_HI_WAIT --> LIST_TX_LO: txdone=1
+  LIST_TX_LO --> LIST_TX_LO_WAIT
+  LIST_TX_LO_WAIT --> LIST_TX_SEP: txdone=1
+  LIST_TX_SEP --> LIST_TX_SEP_WAIT
+  LIST_TX_SEP_WAIT --> LIST_TX_HI: txdone=1 and list_idx < RESULT_BYTE_NUM-1
+  LIST_TX_SEP_WAIT --> IDLE: txdone=1 and list_idx = RESULT_BYTE_NUM-1
+
+  IDLE --> PEAK_NL_LF: peak_evt=1 and result_valid=1
+  PEAK_NL_LF --> PEAK_NL_LF_WAIT
+  PEAK_NL_LF_WAIT --> PEAK_NL_CR: txdone=1
+  PEAK_NL_CR --> PEAK_NL_CR_WAIT
+  PEAK_NL_CR_WAIT --> PEAK_TX_HI: txdone=1
+  PEAK_TX_HI --> PEAK_TX_HI_WAIT
+  PEAK_TX_HI_WAIT --> PEAK_TX_LO: txdone=1
+  PEAK_TX_LO --> PEAK_TX_LO_WAIT
+  PEAK_TX_LO_WAIT --> PEAK_TX_SPACE: txdone=1
+  PEAK_TX_SPACE --> PEAK_TX_SPACE_WAIT
+  PEAK_TX_SPACE_WAIT --> PEAK_TX_I2: txdone=1
+  PEAK_TX_I2 --> PEAK_TX_I2_WAIT
+  PEAK_TX_I2_WAIT --> PEAK_TX_I1: txdone=1
+  PEAK_TX_I1 --> PEAK_TX_I1_WAIT
+  PEAK_TX_I1_WAIT --> PEAK_TX_I0: txdone=1
+  PEAK_TX_I0 --> PEAK_TX_I0_WAIT
+  PEAK_TX_I0_WAIT --> IDLE: txdone=1
+      </pre>
+    </section>
+  </div>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "default",
+      securityLevel: "loose",
+      flowchart: { curve: "basis" }
+    });
+  </script>
+</body>
+</html>
+
+
+
+
